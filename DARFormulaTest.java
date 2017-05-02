@@ -177,6 +177,47 @@ public class DARFormulaTest {
             }
         } catch (RuntimeException e) {
             e.printStackTrace();
+            fail("calcValue raises an exception");
+        }
+    }
+
+    @Test
+    public void testTernary()
+    {
+        System.out.println("testTernary");
+        RuntimeFormula primogenitor = new RuntimeFormula();
+        try {
+            primogenitor.setFormula("sum(i,5,i)", new String[]{"x", "y", "z"});
+            if (primogenitor.calcValue() != 15) {
+                System.out.println(primogenitor.calcValue());
+                System.out.println(primogenitor.formulaToString());
+                fail("calcValue does not return the right answer (1)");
+            }
+        } catch (RuntimeException e) {
+            e.printStackTrace();
+            fail("calcValue raises an exception (1)");
+        }
+        try {
+            primogenitor.setFormula("sum(i,5,sum(j,i,i+j))", new String[]{"x", "y", "z"});
+            if (primogenitor.calcValue() != 90) {
+                System.out.println(primogenitor.calcValue());
+                System.out.println(primogenitor.formulaToString());
+                fail("calcValue does not return the right answer (2)");
+            }
+        } catch (RuntimeException e) {
+            e.printStackTrace();
+            fail("calcValue raises an exception (2)");
+        }
+        try {
+            primogenitor.setFormula("sum(i,5,i)+sum(i,5,i)", new String[]{"x", "y", "z"});
+            if (primogenitor.calcValue() != 30) {
+                System.out.println(primogenitor.calcValue());
+                System.out.println(primogenitor.formulaToString());
+                fail("calcValue does not return the right answer (3)");
+            }
+        } catch (RuntimeException e) {
+            e.printStackTrace();
+            fail("calcValue raises an exception (3)");
         }
     }
 

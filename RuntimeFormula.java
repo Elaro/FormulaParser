@@ -1,6 +1,8 @@
 package darformula;
 
+
 import java.util.ArrayList;
+
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -20,7 +22,7 @@ import java.util.Stack;
 public class RuntimeFormula 
 {
 	private Map<String, Double> variables;
-	
+
 	private FormulaTree formula;
 	private boolean easyMode; 	
 	// If easymode is true, the cases where the operators would 
@@ -42,11 +44,11 @@ public class RuntimeFormula
 	
 	abstract public class FormulaElement{
 		
-		public FormulaElement(){super();};
+		public FormulaElement(){super();}
 		
 		abstract public double calcValue() throws UnexpectedVariableException;
 		abstract public String toString();
-	};
+	}
 	
 	/**
 	 * 
@@ -73,7 +75,7 @@ public class RuntimeFormula
 			super();
 			this.value=value;
 			this.isVariable=false;
-		};
+		}
 		
 		/**
 		 * 
@@ -87,7 +89,7 @@ public class RuntimeFormula
 			super();
 			this.variable=variable;
 			this.isVariable=true;
-		};
+		}
 		
 		/**
 		 * @return a double 
@@ -119,7 +121,7 @@ public class RuntimeFormula
 			}
 			else
 				return value;
-		};
+		}
 		
 		public String toString()
 		{
@@ -127,9 +129,9 @@ public class RuntimeFormula
 				return variable;
 			else
 				return ""+value;
-		};
+		}
 		
-	};
+	}
 	
 	/**
 	 * 
@@ -207,10 +209,23 @@ public class RuntimeFormula
 			case 'i':return Math.abs(operand.calcValue());
 			case 'k':return Math.ceil(operand.calcValue());
 			case 'f':return Math.floor(operand.calcValue());
+			case 'r':
+				cache=operand.calcValue();
+				if((cache>12 || cache<0) && easyMode)
+					return 0;
+				else
+				{
+					double result=1;
+					for(double cacheL=Math.floor(cache);cacheL>1;cacheL--)
+					{
+						result*=cacheL;
+					}
+					return result;
+				}
 			default: throw new RuntimeException("Unexpected Unary operator. Please contact the developer(s). Bad "+ formula.toString());
 			}
 			
-		};
+		}
 		
 		/**
 		 * @return a String that preserves the priority of the operand subtree
@@ -235,10 +250,11 @@ public class RuntimeFormula
 			case 'i':return "abs"+"("+operand.toString()+")";
 			case 'k':return "ceil"+"("+operand.toString()+")";
 			case 'f': return "floor"+"("+operand.toString()+")";
+			case 'r': return "!"+"("+operand.toString()+")";
 			default: return operator + "("+ operand.toString()+")";
 			}
-		};
-	};
+		}
+	}
 	
 	
 	/**
@@ -294,7 +310,7 @@ public class RuntimeFormula
 			default: throw new RuntimeException("Unexpected Binary operator. Please contact the developer(s). Bad "+ formula.toString());
 			}
 			
-		};
+		}
 		
 		public String toString()
 		{
@@ -312,8 +328,63 @@ public class RuntimeFormula
 			case '<':return "("+operand1.toString()+"<"+operand2.toString()+")";
 			default: return "("+operand1.toString()+operator+operand2.toString()+")";
 			}
-		};
-	};
+		}
+	}
+
+	public class TernaryElement extends FormulaElement
+    {
+        private Character op;
+        private SimpleElement var;
+        private FormulaElement limit, operand;
+
+        TernaryElement(Character operator, SimpleElement countingVar, FormulaElement limit, FormulaElement operand)
+        {
+            op=operator;
+            var=countingVar;
+            this.limit=limit;
+            this.operand=operand;
+            if(var.equals(new SimpleElement("r")))
+                throw new UnexpectedVariableException("Incorrect variable assigned as the counting variable. Don't use 'r'");
+            else if(!var.isVariable)
+                throw new UnexpectedVariableException("Assigned number instead of variable");
+        }
+
+        public String toString()
+        {
+            switch(op)
+            {
+                case 's':return "sum("+var+","+limit.toString()+","+operand.toString()+")";
+                case 'm':return "mult("+var+","+limit.toString()+","+operand.toString()+")";
+                default:return op+"("+var+","+limit.toString()+","+operand.toString()+")";
+            }
+        }
+
+        public double calcValue()
+        {
+            double lim=limit.calcValue();
+
+            switch(op)
+            {
+                case 's':{
+                    double result=0;
+                    for (double i = 1; i <= lim; i++) {
+                        putVar(var.toString(), i);
+                        result+=operand.calcValue();
+                    }
+                    variables.remove(var.toString());
+                    return result;}
+                case 'm':{
+                    double result=1;
+                    for (double i = 1; i <= lim; i++) {
+                        putVar(var.toString(), i);
+                        result*=operand.calcValue();
+                    }
+                    variables.remove(var.toString());
+                    return result;}
+                default: throw new RuntimeException("Unexpected Ternary Operator. Please contact the developer. Bad "+formula.toString());
+            }
+        }
+    }
 	
 	/**
 	 * 
@@ -475,6 +546,24 @@ public class RuntimeFormula
 							treeStack.push(new UnaryElement('k',treeStack.pop()));
 					else if(e.element.equals("floor"))
 							treeStack.push(new UnaryElement('f',treeStack.pop()));
+					else if(e.element.equals("!"))
+						treeStack.push(new UnaryElement('r',treeStack.pop()));
+                    else if(e.element.equals("sum"))
+                    {
+                        FormulaElement operand, limit, var;
+                        operand=treeStack.pop();
+                        limit=treeStack.pop();
+                        var=treeStack.pop();
+                        treeStack.push(new TernaryElement('s',(SimpleElement)var,limit,operand ));
+                    }
+                    else if(e.element.equals("mult"))
+                    {
+                        FormulaElement operand, limit, var;
+                        operand=treeStack.pop();
+                        limit=treeStack.pop();
+                        var=treeStack.pop();
+                        treeStack.push(new TernaryElement('m',(SimpleElement)var,limit,operand ));
+                    }
 				}
 				else if(e.level==5)
 				{
@@ -486,12 +575,12 @@ public class RuntimeFormula
 			this.root=treeStack.pop();
 			if(!treeStack.isEmpty())
 				throw new RuntimeException(""+treeStack.pop()+" Non-empty stack at end of abstract syntax tree creation. Please contact the developer(s).");
-		};
+		}
 		
 		public double calcValue() throws UnexpectedVariableException
 		{
 			return root.calcValue();	
-		};
+		}
 		
 		public String toString()
 		{
@@ -508,7 +597,7 @@ public class RuntimeFormula
 		{
 			this.element=element;
 			this.level=level;
-		};
+		}
 		
 		public Token(String element)
 		{
@@ -525,9 +614,9 @@ public class RuntimeFormula
 				level=4;break;
 			case "--":
 				level=5;break;
-			case "sqrt" : case "log" : case "ln" :  case "sin" :  case "cos": case "tan" : case "sinh" : case "cosh" : case "tanh" : case "asin" : case "acos" : case "atan" : case "abs" : case "ceil" : case "floor":
+			case "sqrt" : case "log" : case "ln" :  case "sin" :  case "cos": case "tan" : case "sinh" : case "cosh" : case "tanh" : case "asin" : case "acos" : case "atan" : case "abs" : case "ceil" : case "floor": case "!":case "sum":case "mult":
 				level=6;break;
-			case "(": case ")":
+			case "(": case ")":case ",":
 				level=7;break;
 			default:level=0;
 			}
@@ -546,7 +635,7 @@ public class RuntimeFormula
 
 		@Override
 		public boolean equals(Object obj) {
-			if(obj==null || obj.getClass().getName()!=this.getClass().getName())
+			if(obj==null || !obj.getClass().getName().equals(this.getClass().getName()))
 				return false;
 			return(((Token)obj).element.equals(this.element) && ((Token)obj).level==this.level);
 				
@@ -567,11 +656,11 @@ public class RuntimeFormula
 		public boolean equals(Object o) {
 			
 			
-			if(!(o!=null && o.getClass().getName()==this.getClass().getName()))
+			if(!(o!=null && o.getClass().getName().equals(this.getClass().getName())))
 				{return false;}
 			if(((FormulaTokens)o).size()!=this.size())
 				return false;
-			int i=0;
+			int i;
 			for(i=0;i<this.size();i++)
 			{
 				if(!(((FormulaTokens)o).get(i).equals(this.get(i))))
@@ -621,7 +710,7 @@ public class RuntimeFormula
 					}
 					String temp=formula.substring(i, i+j);
 					String tempFunc=temp.toLowerCase();
-					if(tempFunc.equals("sqrt") ||tempFunc.equals("log") ||tempFunc.equals("ln") || tempFunc.equals("sin") || tempFunc.equals("cos")||tempFunc.equals("tan") ||tempFunc.equals("sinh") ||tempFunc.equals("cosh") ||tempFunc.equals("tanh") ||tempFunc.equals("asin") ||tempFunc.equals("acos") ||tempFunc.equals("atan") ||tempFunc.equals("abs") ||tempFunc.equals("ceil") ||tempFunc.equals("floor"))
+					if(tempFunc.equals("sqrt") ||tempFunc.equals("log") ||tempFunc.equals("ln") || tempFunc.equals("sin") || tempFunc.equals("cos")||tempFunc.equals("tan") ||tempFunc.equals("sinh") ||tempFunc.equals("cosh") ||tempFunc.equals("tanh") ||tempFunc.equals("asin") ||tempFunc.equals("acos") ||tempFunc.equals("atan") ||tempFunc.equals("abs") ||tempFunc.equals("ceil") ||tempFunc.equals("floor")|| tempFunc.equals("sum")||tempFunc.equals("mult"))
 					{
 						formulaTokens.add(new Token(tempFunc,6));
 						i+=j-1;
@@ -632,17 +721,20 @@ public class RuntimeFormula
 						for(j=0;k+j<formula.length() && (Character.isAlphabetic(formula.charAt(k+j))||Character.isDigit(formula.charAt(k+j)));j++)
 						{
 						}
-						temp.concat(formula.substring(k,k+j));
+						temp=temp.concat(formula.substring(k,k+j));
 						formulaTokens.add(new Token(temp, 0));
 						i=k+j-1;
 					}
 				}
 				else if(current=='=' || current=='!' || current=='>' || current=='<')
 				{
-					if(current=='!')
+					if(current=='!' && formula.charAt(i+1)=='=')
 					{
 						formulaTokens.add(new Token("!=",1));
 						i++;
+					}
+					else if(current=='!'){
+						formulaTokens.add(new Token(current.toString(),6));
 					}
 					else
 					{
@@ -665,6 +757,8 @@ public class RuntimeFormula
 				{
 					formulaTokens.add(new Token(current.toString(),7));
 				}
+                else if(current==',')
+                    formulaTokens.add(new Token(current.toString(),7));
 				else if(current==' ')
 				{
 				}
@@ -675,14 +769,15 @@ public class RuntimeFormula
 			}
 			
 			return formulaTokens;
-		};
+		}
 		
 		//S-> P (B P)*
-			//P-> V | "(" S ")" | U P | F "(" S ")"
+			//P-> V | "(" S ")" | U P | F "(" S ")" | T "(" E*N*E* "," S "," S ")"
 			//B->"=" | "!=" | ">" | "<" | "+" | "-" | "*" | "/" | "^"
 			//U-> "-" 
 			//F->"log" | "ln" | "sin" | "cos" | "tan" | "sinh" | "cosh" | "tanh" | "asin" | "acos" | "atan" | "sqrt"| "ceil" | "floor"| "abs"
-			//V->E*N*E* � F | N*.?N*
+			//T->"sum" | "mult"
+            //V->E*N*E* � F | N*.?N*
 			//E->[a-z|A-Z]
 			//N->[0-9]
 			
@@ -693,9 +788,9 @@ public class RuntimeFormula
 				else if(e.equals(new Token(")",7)))
 					throw new UnevenParenthesesException("Number of parentheses is uneven");
 				else
-					throw new UnexpectedTokenException("Unexpected symbol : "+testee.elementToString());
+					throw new UnexpectedTokenException("Unexpected symbol : Expected "+e.elementToString()+", got "+testee.elementToString());
 						
-			};
+			}
 			
 			private Token s(Iterator<Token> iterator) throws UnexpectedTokenException, UnevenParenthesesException
 			{
@@ -707,7 +802,7 @@ public class RuntimeFormula
 					next=(iterator.hasNext()?iterator.next():new Token("End of Line",8));
 				}
 				return next;
-			};
+			}
 			
 			private void p(Iterator<Token> iterator) throws UnexpectedTokenException, UnevenParenthesesException
 			{
@@ -718,6 +813,31 @@ public class RuntimeFormula
 					throw new UnexpectedEOLException("Unexpected end of formula");
 				if(next.level==0)
 					return;
+                else if(next.element.equals("sum")||next.element.equals("mult"))
+                {
+                    if(iterator.hasNext())
+                        next=iterator.next();
+                    else
+                        throw new UnexpectedEOLException();
+                    expect(next, new Token("(",7));
+                    if(iterator.hasNext())
+                        next=iterator.next();
+                    else
+                        throw new UnexpectedEOLException();
+                    if(next.level!=0)
+                        throw new UnexpectedTokenException("Unexpected symbol: Expected a variable, got "+next.elementToString());
+                    if(iterator.hasNext())
+                        next=iterator.next();
+                    else
+                        throw new UnexpectedEOLException();
+                    expect(next,new Token(","));
+                    next=s(iterator);
+                    expect(next,new Token(","));
+                    next=s(iterator);
+                    expect(next,new Token(")"));
+                    return;
+
+                }
 				else if(next.element.equals("("))
 				{
 					next=s(iterator);
@@ -742,7 +862,7 @@ public class RuntimeFormula
 					expect(next, new Token(")",7));
 				}
 				else throw new UnexpectedTokenException("Unexpected symbol : "+next.elementToString());
-			};
+			}
 			
 			
 			public FormulaTokens checkFormula() throws UnexpectedTokenException, UnevenParenthesesException, UnexpectedEOLException
@@ -752,7 +872,7 @@ public class RuntimeFormula
 				if(!next.equals(new Token("End of Line",8)))
 					throw new UnexpectedTokenException("Unexpected symbol : "+next.toString());
 				return this;
-			};
+			}
 			
 			public FormulaTokens checkVariables(String[] expectedVariables) throws UnexpectedVariableException
 			{
@@ -818,7 +938,7 @@ public class RuntimeFormula
 				
 				
 				return result;
-			};
+			}
 	}
 	
 	/*
@@ -828,7 +948,7 @@ public class RuntimeFormula
 	{
 		variables=new HashMap<String, Double>();
 		easyMode=true;
-	};
+	}
 	
 	public RuntimeFormula(FormulaElement root, Map<String, Double> variables)
 	{
@@ -845,17 +965,17 @@ public class RuntimeFormula
 	public void putVar(String variable, double value)
 	{
 		variables.put(variable,value);
-	};
+	}
 	
 	public double getVar(String variable)
 	{
 		return variables.get(variable);
-	};
+	}
 	
 	public void setFormula(String formula, String[] expectedVariables) throws UnexpectedCharacterException, UnexpectedTokenException, UnevenParenthesesException, UnexpectedVariableException, UnexpectedEOLException
-	{	
+	{
 		this.formula= new FormulaTree(FormulaTokens.Tokenize(formula).checkFormula().checkVariables(expectedVariables).makePostFix());
-	};
+	}
 	
 	public void checkFormula(String formula, String[] expectedVariables) throws UnexpectedCharacterException, UnexpectedTokenException, UnevenParenthesesException, UnexpectedVariableException, UnexpectedEOLException
 	{
@@ -865,13 +985,13 @@ public class RuntimeFormula
 	public double calcValue() throws UnexpectedVariableException
 	{
 		return formula.calcValue();
-	};
+	}
 	
 	public int calcValueInt() throws UnexpectedVariableException
 	{
 		return (int)calcValue();
-	};
-	
+	}
+
 	public String toString()
 	{
 		String formulaString;
