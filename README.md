@@ -1,3 +1,3 @@
 # FormulaParser
 
-A Java library for parsing a user-given numerical formula string into an object that can calculate that formula serially.
+A Java library for compiling a mathematical formula to object code.

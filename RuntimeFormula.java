@@ -11,7 +11,7 @@ import java.util.Stack;
 
 /**
  * 
- * @author François Luc
+ * @author François Luc Denhez-Teuton
  * 
  * RuntimeFormula serves to store a runtime-defined formula (a formula defined
  * by the user) in a form adequate for quick calculations with variables. A 
@@ -24,11 +24,10 @@ public class RuntimeFormula
 	private Map<String, Double> variables;
 
 	private FormulaTree formula;
-	private boolean easyMode; 	
-	// If easymode is true, the cases where the operators would 
+	private boolean catchesArithmeticExceptions; 	
+	// If catchesArithmeticExceptions is true, the cases where the operators would 
 	// throw an arithmetic exception will instead return 0, so that the end-
-	// users don't have to worry about avoiding these cases. If false, all
-	// exceptions can be raised.
+	// users don't have to think about avoiding these cases. 
 	
 	/*
 	 * BEGINNING OF CLASSES
@@ -37,7 +36,7 @@ public class RuntimeFormula
 	
 	/**
 	 * 
-	 * @author François Luc
+	 * @author François Luc Denhez-Teuton
 	 * 
 	 * An abstract class representing an element of the formula
 	 */
@@ -52,7 +51,7 @@ public class RuntimeFormula
 	
 	/**
 	 * 
-	 * @author François Luc
+	 * @author François Luc Denhez-Teuton
 	 *
 	 * A FormulaElement representing a numeric value or variable
 	 */
@@ -61,7 +60,6 @@ public class RuntimeFormula
 	{
 		private double value;
 		private String variable;
-		private boolean isVariable;
 		
 		/**
 		 * 
@@ -74,31 +72,30 @@ public class RuntimeFormula
 		{
 			super();
 			this.value=value;
-			this.isVariable=false;
+			this.variable="";
 		}
 		
 		/**
 		 * 
 		 * @param variable
 		 * 
-		 * Sets the object to return a variable or a named value like pi or e
+		 * Sets the object to return the value of a registered variable, the 
+		 * named constants pi, e, and phi, or, if set to 'r', a random number
+		 * between 0 and 1 exclusive
 		 */
 		
 		public SimpleElement(String variable)
 		{
 			super();
 			this.variable=variable;
-			this.isVariable=true;
 		}
 		
 		/**
-		 * @return a double 
+		 * @return double 
 		 * 
-		 * Returns the value of the constant given at construction or the 
-		 * value of the variable that's stored in the "variables" Map or 
-		 * returns a random number as if Math.random() was called, depending 
-		 * on the status of the isVariable flag and what the variable String
-		 * contains
+		 * Returns either the value of the constant given at construction, the 
+		 * value of the corresponding variable stored in the "variables" Map, or 
+		 * returns the result of a Math.random() call
 		 * 
 		 * @throws UnexpectedVariableException, if the variable was not found
 		 * in the Map
@@ -106,36 +103,32 @@ public class RuntimeFormula
 		
 		public double calcValue() throws UnexpectedVariableException
 		{
-			if(isVariable && variable.equals("r"))
-				return Math.random();
-			else if(isVariable && (variable.toLowerCase().equals("pi")))
-				return Math.PI;
-			else if(isVariable && (variable.equals("e")||variable.equals("E")))
-				return Math.E;
-			else if(isVariable)
-			{
-				Double val=variables.get(variable);
-				if(val!=null)
-					return val;
-				else throw new UnexpectedVariableException("Unexpected variable : "+variable.toString());
-			}
-			else
+			if(variable.isEmpty())
 				return value;
+			if(variable.equals("r"))
+				return Math.random();
+			if(variable.toLowerCase().equals("pi"))
+				return Math.PI;
+			if(variable.toLowerCase.equals("e"))
+				{return Math.E;}
+			Double val=variables.get(variable);
+			if(val!=null)
+				return val;
+			else throw new UnexpectedVariableException("Variable : "+variable.toString());
 		}
 		
 		public String toString()
 		{
-			if(isVariable)
-				return variable;
-			else
-				return ""+value;
+			if(variable.isEmpty())
+				return ""+value;	
+			return variable;
 		}
 		
 	}
 	
 	/**
 	 * 
-	 * @author François Luc
+	 * @author François Luc Denhez-Teuton
 	 *
 	 * A FormulaElement for storing unary operators like basic functions and
 	 * the negative operator
@@ -168,19 +161,19 @@ public class RuntimeFormula
 			case '-':return -operand.calcValue();
 			case 'x':
 				cache=operand.calcValue();
-				if(cache < 0 && easyMode)
+				if(cache < 0 && catchesArithmeticExceptions)
 					return 0;
 				return Math.sqrt(cache);
 			case 'l':
 				cache=operand.calcValue();
-				if(cache <= 0 && easyMode)
+				if(cache <= 0 && catchesArithmeticExceptions)
 				{
 					return 0;
 				}
 				return Math.log10(cache);
 			case 'e':
 				cache=operand.calcValue();
-				if(cache <= 0 && easyMode)
+				if(cache <= 0 && catchesArithmeticExceptions)
 				{
 					return 0;
 				}
@@ -189,7 +182,7 @@ public class RuntimeFormula
 			case 'c':return Math.cos(operand.calcValue());
 			case 't':
 				cache=operand.calcValue();
-				if(Math.cos(cache)==0 && easyMode)
+				if(Math.cos(cache)==0 && catchesArithmeticExceptions)
 					return 0;
 				return Math.tan(cache);
 			case 'h':return Math.sinh(operand.calcValue());
@@ -197,12 +190,12 @@ public class RuntimeFormula
 			case 'n':return Math.tanh(operand.calcValue());
 			case 'a':
 				cache=operand.calcValue();
-				if((cache>1 || cache<-1) && easyMode)
+				if((cache>1 || cache<-1) && catchesArithmeticExceptions)
 					return 0;
 				return Math.asin(operand.calcValue());
 			case 'q':
 				cache=operand.calcValue();
-				if((cache>1 || cache<-1) && easyMode)
+				if((cache>1 || cache<-1) && catchesArithmeticExceptions)
 					return 0;
 				return Math.acos(operand.calcValue());
 			case 'u':return Math.atan(operand.calcValue());
@@ -211,7 +204,7 @@ public class RuntimeFormula
 			case 'f':return Math.floor(operand.calcValue());
 			case 'r':
 				cache=operand.calcValue();
-				if((cache>12 || cache<0) && easyMode)
+				if((cache>12 || cache<0) && catchesArithmeticExceptions)
 					return 0;
 				else
 				{
@@ -259,7 +252,7 @@ public class RuntimeFormula
 	
 	/**
 	 * 
-	 * @author François Luc
+	 * @author François Luc Denhez-Teuton
 	 *
 	 * A FormulaElement for binary operators including the comparison operators,
 	 * which return 1 if satisfied and 0 if not
@@ -292,14 +285,14 @@ public class RuntimeFormula
 			case '+':return operand1.calcValue()+operand2.calcValue();
 			case '-':return operand1.calcValue()-operand2.calcValue();
 			case '*':return operand1.calcValue()*operand2.calcValue();
-			case '/':if((cache1=operand2.calcValue())==0 && easyMode)
+			case '/':if((cache1=operand2.calcValue())==0 && catchesArithmeticExceptions)
 					{return 0;}
 					return operand1.calcValue()/cache1;
-			case '%':if((cache1=operand2.calcValue())==0 && easyMode)
+			case '%':if((cache1=operand2.calcValue())==0 && catchesArithmeticExceptions)
 					{return 0;}
 					return (operand1.calcValue()%cache1 + cache1)%cache1;
 			case '^':cache1=Math.pow(operand1.calcValue(), operand2.calcValue());
-					if(cache1.isNaN() && easyMode)
+					if(cache1.isNaN() && catchesArithmeticExceptions)
 					{return 0;}
 					return cache1;
 			// To avoid rounding errors due to saving as double, equality means "being close by 10^-5"
@@ -388,7 +381,7 @@ public class RuntimeFormula
 	
 	/**
 	 * 
-	 * @author François Luc
+	 * @author François Luc Denhez-Teuton
 	 *
 	 * The tree representing the formula. Made up of FormulaElements.
 	 */
@@ -947,14 +940,14 @@ public class RuntimeFormula
 	public RuntimeFormula()
 	{
 		variables=new HashMap<String, Double>();
-		easyMode=true;
+		catchesArithmeticExceptions=true;
 	}
 	
 	public RuntimeFormula(FormulaElement root, Map<String, Double> variables)
 	{
 		this.variables=variables;
 		formula=new FormulaTree(root);
-		easyMode=true;
+		catchesArithmeticExceptions=true;
 	}
 	
 	public Map<String, Double> getAllVars()
@@ -1012,10 +1005,10 @@ public class RuntimeFormula
 		return formulaString;
 	}
 	
-	public void setEasyMode(boolean noExceptionMode)
+	public void setCatchesArithmeticExceptions(boolean noExceptionMode)
 	{
-		easyMode=noExceptionMode;
-		System.out.println(noExceptionMode?"The numeric exception safeties have been enabled":"The numeric exception safeties have been disabled");
+		catchesArithmeticExceptions=noExceptionMode;
+		System.out.println(noExceptionMode?"Operations causing numeric exceptions will return 0":"Operations causing numeric exceptions will throw them");
 	}
 }
 
